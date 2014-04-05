@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 # Appplication that monitors users being currently in hackerspace.
@@ -26,9 +27,10 @@ import datetime
 import time
 import ConfigParser
 import base64
+import os
 
 config = ConfigParser.ConfigParser()
-config.read(('config.cfg', 'localconfig.cfg'))
+config.read(('config.cfg', 'localconfig.cfg', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'localconfig.cfg') ))
 
 web.config.debug = config.getboolean('application', 'debug')
 
@@ -43,8 +45,13 @@ def get_current_dhcp_leases():
 	# final version - parses /var/lib/dhcp/dhcp.leases
 
 	data = ''
-	with file(config.get('database', 'leases_file'), 'r') as f:
-		data = f.read()
+
+	if 'leases_file' in config.options('database'):
+		with file(config.get('database', 'leases_file'), 'r') as f:
+			data = f.read()
+	else:
+		import requests
+		data = requests.get(config.get('database', 'leases_url')).text
 
 	# matches = re.findall(r'lease ([^\s]*) {\n  starts \d \d\d\d\d/\d\d/\d\d \d\d:\d\d:\d\d;\n  ends \d \d\d\d\d/\d\d/\d\d \d\d:\d\d:\d\d;\n  cltt \d \d\d\d\d/\d\d/\d\d \d\d:\d\d:\d\d;\n  binding state active;[\s\S]*?hardware ethernet (.{17});', data)
 	# return [(ip, mac_to_binary(mac)) for ip, mac in matches]
@@ -103,7 +110,10 @@ class register_device:
 	def GET(self, uid, access_key):
 		uid = int(uid)
 
-		user_ip = web.ctx.ip
+		try:
+			user_ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR', web.ctx.get('ip', '')).split(',')[0].strip()
+		except:
+			user_ip = web.ctx.ip
 		user_mac = None
 		dhcp_leases = get_current_dhcp_leases()
 
