@@ -95,7 +95,10 @@ class register_device:
 	def GET(self, uid, access_key):
 		uid = int(uid)
 
-		user_ip = web.ctx.ip
+		try:
+			user_ip = web.ctx.env.get('HTTP_X_FORWARDED_FOR', web.ctx.get('ip', '')).split(',')[0].strip()
+		except:
+			user_ip = web.ctx.ip
 		user_mac = None
 		dhcp_leases = get_current_dhcp_leases()
 
